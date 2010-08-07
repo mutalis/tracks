@@ -21,8 +21,6 @@ class Permissions < Aegis::Permissions
       deny :subuser
     end
     action :edit, :update do
-      allow :mainuser
-      allow :subuser_projects
       deny :subuser
     end
   end

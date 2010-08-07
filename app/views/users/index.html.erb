@@ -4,34 +4,73 @@
 
 <table class="users_table"> 
   <tr> 
+
     <th>Login</th>
-    <th>Full name</th>
-    <th>Authorization type</th>
-    <th>Open ID URL</th>
-    <th>Total actions</th>
-    <th>Total contexts</th>
-    <th>Total projects</th>
-    <th>Total notes</th>
+    <%- if current_user.is_admin? %>
+      <th>Authorization type</th>
+      <th>Open ID URL</th>
+      <th>Total actions</th>
+      <th>Total contexts</th>
+      <th>Total projects</th>
+      <th>Total notes</th>
+      <% for user in @users %>
+        <tr <%= "class=\"highlight\"" if user.is_admin? %> id="user-<%= user.id %>">
+          <td><%=h user.login %></td>
+          <td><%=h user.last_name? ? user.display_name : '-' %></td>
+          <td><%= h user.auth_type %></td>
+          <td><%= h user.open_id_url || '-' %></td>
+          <td><%= h user.todos.size %></td>
+          <td><%= h user.contexts.size %></td>
+          <td><%= h user.projects.size %></td>
+          <td><%= h user.notes.size %></td>
+          <td><%= link_to "Edit", edit_user_path(user.id)%></td>
+          <td><%= !user.is_admin? ? link_to_remote(
+              image_tag("blank.png", :title =>"Destroy user", :class=>"delete_item"),
+              { :url => user_path(user.id), :method => :delete,
+                :confirm => "Warning: this will delete user \'#{user.login}\', all their actions, contexts, project and notes. Are you sure that you want to continue?" },
+              { :class => "icon" } ) : "&nbsp;" %></td>
+        </tr>
+      <% end %>
+    <% elsif current_user.is_mainuser? %>
+      <th>Full name</th>
+      <th>Create projects</th>
+      <th>View projects</th>
+      <th>Edit projects</th>
+      <th>E-mail</th>
+      <th>Comments</th>
+      <th></th>
+      <th></th>
+      <% for user in @users %>
+          <tr>
+          <td><%=h user.login %></td>
+          <td><%=h user.last_name? ? user.display_name : '-' %></td>
+          <td><%- if user.role_name == "subuser_projects"%>
+                <%=h "YES"%>
+              <% else %>
+                <%=h "NO" %>
+              <%end -%>
+          </td>
+          <td><%- if user.role_name == "subuser_projects"%>
+                <%=h "YES"%>
+              <% else %>
+                <%=h "NO" %>
+              <%end -%>
+          </td>
+          <td></td>
+          <td></td>
+          <td><%= link_to "Edit", edit_user_path(user.id)%></td>
+          <td><%= !user.is_admin? ? link_to_remote(
+              image_tag("blank.png", :title =>"Destroy user", :class=>"delete_item"),
+              { :url => user_path(user.id), :method => :delete,
+                :confirm => "Warning: this will delete user \'#{user.login}\', all their actions, contexts, project and notes. Are you sure that you want to continue?" },
+              { :class => "icon" } ) : "&nbsp;" %></td>
+    
+        </tr>
+      <% end -%>
+
+    <% end -%>
     <th>&nbsp;</th>
   </tr> 
-  <% for user in @users %>
-    <tr <%= "class=\"highlight\"" if user.is_admin? %> id="user-<%= user.id %>">
-      <td><%=h user.login %></td>
-      <td><%=h user.last_name? ? user.display_name : '-' %></td>
-      <td><%= h user.auth_type %></td>
-      <td><%= h user.open_id_url || '-' %></td>
-      <td><%= h user.todos.size %></td>
-      <td><%= h user.contexts.size %></td>
-      <td><%= h user.projects.size %></td>
-      <td><%= h user.notes.size %></td>
-      <td><%= link_to "Edit", edit_user_path(user.id)%></td>
-      <td><%= !user.is_admin? ? link_to_remote(
-          image_tag("blank.png", :title =>"Destroy user", :class=>"delete_item"),
-          { :url => user_path(user.id), :method => :delete,
-            :confirm => "Warning: this will delete user \'#{user.login}\', all their actions, contexts, project and notes. Are you sure that you want to continue?" },
-          { :class => "icon" } ) : "&nbsp;" %></td>
-    </tr>
-  <% end %>
 </table>
 <p>
   <%= will_paginate @users %>

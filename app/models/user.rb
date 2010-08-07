@@ -250,5 +250,9 @@ protected
     return if open_id_url.nil?
     self.open_id_url = OpenIdAuthentication.normalize_url(open_id_url)
   end  
+  def project_name
+  end
 
+  def project_name=
+  end
 end

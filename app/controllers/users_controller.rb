@@ -73,7 +73,7 @@ class UsersController < ApplicationController
       format.html do
         unless User.no_users_yet? || (@user && @user.is_admin? || @user.role_name == "mainuser")
           @page_title = "No signups"
-          @admin_email = User.find_admin.preference.admin_email
+          @admin_email = User.find_admin.preference.admin_email 
           render :action => "nosignup", :layout => "login"
           return
         end
@@ -85,9 +85,9 @@ class UsersController < ApplicationController
           return
         end
 
-        first_user_signing_up = User.no_users_yet?
-        user.is_admin = true if first_user_signing_up
-        if current_user.is_admin?
+        if (first_user_signing_up = User.no_users_yet?)
+          user.is_admin = true 
+        elsif current_user.is_admin?
           user.role_name = "mainuser"
           user.is_admin = false
           user.mainuser = current_user
@@ -139,6 +139,8 @@ class UsersController < ApplicationController
 
   def update
     @user = User.find(params[:id])
+    @project = Project.find_by_name(params[:project_name])
+    @user.projects << @project
     unless @user.update_attributes(params[:user])
       redirect_to edit_user_path
     else

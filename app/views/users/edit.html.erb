@@ -3,13 +3,20 @@
   <p>
     <%= f.label :login, "Change login:"%>
     <%= f.text_field :login%>
+  </p>
+  <p>
     <%= f.label :pasword, "Change Password:"%>
     <%= f.password_field :password%>
+  </p>
+  <p>
     <%= f.label :pasword_confirmation, "Confirm password:"%>
     <%= f.password_field :password_confirmation%>
   </p>
   <br/>
   <h2>Assign project</h2>
-
+     <%= f.label :project_id, "Projects:"%>
+     <%=  f.text_field :project_name%>
+  <br />
   <%= f.submit 'Save Changes'%>
+  <%= link_to "Back", users_path%>
 <% end %>
