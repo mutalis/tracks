@@ -1,0 +1,37 @@
+<h1><%= @managed_user.login %> assigned projects</h1>
+
+<table class="users_table"> 
+  <tr> 
+    <th>Name</th>
+    <th>Read</th>
+    <th>Write</th>
+  </tr>
+
+  <% for project in @shared_projects %>
+		<% @right = @managed_user.get_rights(project) %>
+		<% @right = Right.new unless @right %>
+    <tr>
+			<td><%= h project.name %></td>
+			<% form_for @right, :url => {:action => 'change_rights', :id => @managed_user.id, :right_id => @right.id} do |perm| %>
+				<%= perm.error_messages %>
+				<td><%= perm.check_box :read %></td>
+				<td><%= perm.check_box :write %></td>
+				<td><%= perm.submit 'Update rights' %></td>
+			<% end %>
+
+			<td><%= link_to 'Unassign Project', :action => 'unassign_project', :id => @managed_user.id, :project_id => project %></td>
+		</tr>
+  <% end %>
+  
+</table>
+
+<% @project_list = @unassigned_projects.map { |u| [u.name, u.id]} %>
+
+<% form_for :right, :url => {:action => 'assign_project'} do |f| %>
+	<%= f.error_messages %>
+	<%= f.select(:project_id, @project_list) %>
+	<%= f.hidden_field :user_id, :value => @managed_user.id %>
+	<%= f.submit 'Assign Project' %>
+<% end %>
+
+<p><%= link_to 'Back to main menu', users_path %></p>

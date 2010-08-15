@@ -3,18 +3,25 @@ class Project < ActiveRecord::Base
   has_many :notes, :dependent => :delete_all, :order => "created_at DESC"
   has_many :recurring_todos
   belongs_to :default_context, :class_name => "Context", :foreign_key => "default_context_id"
-  belongs_to :user
 
   named_scope :active, :conditions => { :state => 'active' }
   named_scope :hidden, :conditions => { :state => 'hidden' }
   named_scope :completed, :conditions => { :state => 'completed'}
+
+  has_many :rights
+  
+  has_many :users, :through => :rights, :uniq => true
+  
+  has_many :shared_users, :through => :rights, :source => :user, :conditions => 'rights.owner = false', :uniq => true
+  
   
   validates_presence_of :name, :message => "project must have a name"
   validates_length_of :name, :maximum => 255, :message => "project name must be less than 256 characters"
-  validates_uniqueness_of :name, :message => "already exists", :scope =>"user_id"
+  # validates_uniqueness_of :name, :message => "already exists", :scope =>"user_id"
+  validates_uniqueness_of :name, :message => "already exists"
   validates_does_not_contain :name, :string => ',', :message => "cannot contain the comma (',') character"
 
-  acts_as_list :scope => 'user_id = #{user_id} AND state = \'#{state}\''
+  # acts_as_list :scope => 'user_id = #{user_id} AND state = \'#{state}\''
   acts_as_state_machine :initial => :active, :column => 'state'
   extend NamePartFinder
   include Tracks::TodoList
@@ -98,7 +105,11 @@ class Project < ActiveRecord::Base
   
   def new_record_before_save?
     @new_record_before_save
-  end  
+  end
+  
+  def get_rights(user)
+    Right.find_by_user_id_and_project_id(user.id, self.id)
+  end
   
 end
 

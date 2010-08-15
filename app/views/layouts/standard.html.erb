@@ -61,7 +61,7 @@ window.onload=function(){
   <li><%= navigation_link( "Notes", notes_path, {:accesskey => "o", :title => "Show all notes"} ) %></li>
   <li><%= navigation_link( "Preferences", preferences_path, {:accesskey => "u", :title => "Show my preferences"} ) %></li>
   <li><%= navigation_link( "Export", {:controller => "data", :action => "index"}, {:accesskey => "i", :title => "Import and export data"} ) %></li>
-  <% if current_user.is_admin? -%>
+  <% if current_user.has_role?("admin") || current_user.has_role?("mainuser") -%>
     <li><%= navigation_link("Admin", users_path, {:accesskey => "a", :title => "Add or delete users"} ) %></li>
   <% end -%>
   <li><%= navigation_link(image_tag("x-office-calendar.png", :size => "16X16", :border => 0), calendar_path, :title => "Calendar of due actions" ) %></li>

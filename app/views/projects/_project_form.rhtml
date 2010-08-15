@@ -1,5 +1,6 @@
 <%
     project = project_form
+		shared_users = project.shared_users
 %>
 <% form_tag project_path(project), { :id => dom_id(project, 'edit_form'), :class => "inline-form "+dom_id(project, 'edit_form')+"-edit-project-form", :method => :put } do -%>
 

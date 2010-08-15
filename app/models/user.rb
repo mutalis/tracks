@@ -11,7 +11,10 @@ class User < ActiveRecord::Base
                find(params['id'] || params['context_id']) || nil
              end
            end
-  has_many :projects,
+
+  has_many :rights
+
+  has_many :projects, :through => :rights, :conditions => 'rights.owner = true', :uniq => true,
            :order => 'projects.position ASC',
            :dependent => :delete_all do
               def find_by_params(params)
@@ -67,8 +70,7 @@ class User < ActiveRecord::Base
                 return projects
               end
             end
-  has_many :active_projects,
-           :class_name => 'Project',
+  has_many :active_projects, :through => :rights, :source => :project, :uniq => true,
            :order => 'projects.position ASC',
            :conditions => [ 'state = ?', 'active' ]
   has_many :active_contexts,
@@ -105,14 +107,71 @@ class User < ActiveRecord::Base
   has_many :notes, :order => "created_at DESC", :dependent => :delete_all
   has_one :preference, :dependent => :destroy
   
-  # Self referential join to trace the relationships between the MainUsers and SubUsers
-  has_many :subusers, :class_name => "User"
-  belongs_to :mainuser, :class_name => "User", :foreign_key => "mainuser_id"
+  # Self referential join to trace the relationships between the users (ex: Admins and SubUsers)
+  has_many :managed_users, :class_name => "User", :foreign_key => "manager_id"
+  belongs_to :manager, :class_name => "User", :foreign_key => "manager_id"
 
+  has_many :rights
+
+  has_many :shared_projects, :through => :rights, :source => :project, :conditions => 'rights.owner = false', :uniq => true,
+           :order => 'projects.position ASC',
+           :dependent => :delete_all do
+              def find_by_params(params)
+                find(params['id'] || params['project_id'])
+              end
+              def update_positions(project_ids)
+                project_ids.each_with_index do |id, position|
+                  project = self.detect { |p| p.id == id.to_i }
+                  raise "Project id #{id} not associated with user id #{@user.id}." if project.nil?
+                  project.update_attribute(:position, position + 1)
+                end
+              end
+              def projects_in_state_by_position(state)
+                  self.sort{ |a,b| a.position <=> b.position }.select{ |p| p.state == state }
+              end
+              def next_from(project)
+                self.offset_from(project, 1)
+              end
+              def previous_from(project)
+                self.offset_from(project, -1)
+              end
+              def offset_from(project, offset)
+                projects = self.projects_in_state_by_position(project.state)
+                position = projects.index(project)
+                return nil if position == 0 && offset < 0
+                projects.at( position + offset)
+              end
+              def cache_note_counts
+                project_note_counts = Note.count(:group => 'project_id')
+                self.each do |project|
+                  project.cached_note_count = project_note_counts[project.id] || 0
+                end
+              end
+              def alphabetize(scope_conditions = {})
+                projects = find(:all, :conditions => scope_conditions)
+                projects.sort!{ |x,y| x.name.downcase <=> y.name.downcase }
+                self.update_positions(projects.map{ |p| p.id })
+                return projects
+              end
+              def actionize(user_id, scope_conditions = {})
+                @state = scope_conditions[:state]
+                query_state = ""
+                query_state = "AND project.state = '" + @state +"' "if @state
+                projects = Project.find_by_sql([
+                    "SELECT project.id, count(todo.id) as p_count " +
+                      "FROM projects as project " +
+                      "LEFT OUTER JOIN todos as todo ON todo.project_id = project.id "+
+                      "WHERE project.user_id = ? AND NOT (todo.state='completed') " +
+                      query_state +
+                      " GROUP BY project.id ORDER by p_count DESC",user_id])
+                self.update_positions(projects.map{ |p| p.id })
+                projects = find(:all, :conditions => scope_conditions)
+                return projects
+              end
+            end
+  
   # Roles by Aegis gem
   has_role
-
-  attr_protected :is_admin
 
   validates_presence_of :login
   validates_presence_of :password, :if => :password_required?
@@ -160,7 +219,7 @@ class User < ActiveRecord::Base
   end
   
   def self.find_admin
-    find(:first, :conditions => [ "is_admin = ?", true ])    
+    find(:first, :conditions => [ "role_name = ?", "admin" ])
   end
   
   def to_param
@@ -217,6 +276,10 @@ class User < ActiveRecord::Base
     save(false)
   end
 
+  def get_rights(project)
+    Right.find_by_user_id_and_project_id(self.id, project.id)
+  end
+  
 protected
 
   def self.sha1(s)

@@ -20,6 +20,12 @@
       <td><label for="user_password_confirmation">Confirm password:</label></td>
       <td><%= password_field "user", "password_confirmation", :size => 20 %></td>
     </tr>
+		<% if !@first_user_signing_up %>
+			<tr>
+	      <td><label for="user_role_name">Role :</label></td>
+	      <td><%= select_tag "role_name", options_for_select([["Main User","mainuser"],["Subuser with Projects","subuser_projects"],["Subuser","subuser"]]) %></td>
+	    </tr>
+		<% end %>
     <tr>
       <td></td>
       <td><input type="submit" id="signup" value="Signup &#187;" class="primary" /></td>

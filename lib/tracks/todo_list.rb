@@ -5,8 +5,8 @@ module Tracks
       @not_done_todos ||= self.find_not_done_todos(opts)
     end
 
-    def done_todos
-      @done_todos ||= self.find_done_todos
+    def done_todos(current_user)
+      @done_todos ||= self.find_done_todos(current_user)
     end
     
     def deferred_todos
@@ -23,8 +23,9 @@ module Tracks
       self.todos.find_in_state(:all, :deferred, :order => "todos.due IS NULL, todos.due ASC, todos.created_at ASC")
     end
 
-    def find_done_todos
-      self.todos.find_in_state(:all, :completed, :order => "todos.completed_at DESC", :limit => self.user.prefs.show_number_completed)
+    def find_done_todos(current_user)
+      # self.todos.find_in_state(:all, :completed, :order => "todos.completed_at DESC", :limit => self.user.prefs.show_number_completed)
+      self.todos.find_in_state(:all, :completed, :order => "todos.completed_at DESC", :limit => current_user.prefs.show_number_completed)
     end
   
     def not_done_todo_count(opts={})

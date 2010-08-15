@@ -22,7 +22,7 @@
   		Due on ________
   	<% end %>
   		 </span></li>
-    <% if current_user.is_admin? %>
+    <% if current_user.has_role?("admin") %>
       <li>Admin email: <span class="highlight"><%= prefs.admin_email %></span></li>
     <% end %>
     <li>Refresh interval (in minutes): <span class="highlight"><%= prefs.refresh %></span></li>

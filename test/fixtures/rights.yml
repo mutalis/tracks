@@ -1,0 +1,11 @@
+# Read about fixtures at http://ar.rubyonrails.org/classes/Fixtures.html
+
+one:
+  owner: MyString
+  read: MyString
+  write: MyString
+
+two:
+  owner: MyString
+  read: MyString
+  write: MyString

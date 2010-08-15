@@ -1,16 +1,21 @@
 class UsersController < ApplicationController
-  before_filter :admin_login_required, :only => [ :index, :show, :destroy ]
+  # before_filter :admin_login_required, :only => [ :index, :show, :destroy ]
   skip_before_filter :login_required, :only => [ :new, :create ]
   prepend_before_filter :login_optional, :only => [ :new, :create ]
+  permissions :users, :except => [:new, :create]
   
   # GET /users GET /users.xml
   def index
-    @users  = User.find(:all, :order => 'login')
+    if current_user.has_role?("admin")
+      users = User.all
+    else
+      users = current_user.managed_users
+    end
     respond_to do |format|
       format.html do
         @page_title = "TRACKS::Manage Users"
-        @users = User.paginate :page => params[:page], :order => 'login ASC'
-        @total_users = User.count
+        @users = users.paginate :page => params[:page], :per_page => 10, :order => 'login ASC'
+        @total_users = @users.size
         # When we call users/signup from the admin page we store the URL so that
         # we get returned here when signup is successful
         store_location
@@ -18,7 +23,7 @@ class UsersController < ApplicationController
       format.xml { render :xml => @users.to_xml(:except => [ :password ]) }
     end
   end
-  
+
   # GET /users/id GET /users/id.xml
   def show
     @user = User.find_by_id(params[:id])
@@ -28,10 +33,11 @@ class UsersController < ApplicationController
   # GET /users/new
   def new
     if User.no_users_yet?
+      @first_user_signing_up = true
       @page_title = "TRACKS::Sign up as the admin user"
       @heading = "Welcome to TRACKS. To get started, please create an admin account:"
       @user = get_new_user
-    elsif @user && @user.is_admin?
+    elsif @user && (@user.role_name=="admin" || @user.role_name=="mainuser")
       @page_title = "TRACKS::Sign up a new user"
       @heading = "Sign up a new user:"
       @user = get_new_user
@@ -58,7 +64,7 @@ class UsersController < ApplicationController
     end
     respond_to do |format|
       format.html do
-        unless User.no_users_yet? || (@user && @user.is_admin?)
+        unless User.no_users_yet? || (@user && (@user.role_name=="admin" || @user.role_name=="mainuser"))
           @page_title = "No signups"
           @admin_email = User.find_admin.preference.admin_email
           render :action => "nosignup", :layout => "login"
@@ -73,7 +79,19 @@ class UsersController < ApplicationController
         end
 
         first_user_signing_up = User.no_users_yet?
-        user.is_admin = true if first_user_signing_up
+        
+        if first_user_signing_up
+          user.role_name = "admin"
+        else
+          user.manager = current_user
+          user.role_name = params[:role_name]
+        end
+        
+        # ASUMO QUE SOLO SE CREAN SUBUSERS MAL, que soy mainuser, pero tambien puedo ser admin.
+        # Los Admins y los MainUsers pueden crear usuarios
+        
+        
+        
         if user.save
           @user = User.authenticate(user.login, params['user']['password'])
           @user.create_preference
@@ -85,7 +103,7 @@ class UsersController < ApplicationController
         return
       end
       format.xml do
-        unless User.find_by_id_and_is_admin(session['user_id'], true)
+        unless User.find_by_id_and_role_name(session['user_id'], "admin")
           render :text => "401 Unauthorized: Only admin users are allowed access to this function.", :status => 401
           return
         end
@@ -182,6 +200,48 @@ class UsersController < ApplicationController
     redirect_to preferences_path
   end
   
+  def assign_project
+    if request.get?
+      @managed_user = User.find(params[:id])
+      @shared_projects = @managed_user.shared_projects
+      @unassigned_projects = current_user.projects - @shared_projects
+    else
+      right = Right.new(params[:right])
+      right.write = false
+      right.read = false
+      right.owner = false
+      
+      if right.save
+        notify :notice, "The project has been assigned."
+        redirect_to :action => 'assign_project', :id => right.user.id
+      else
+        notify :warning, "There was a problem to assign the project."
+        render :action => 'assign_project', :id => right.user.id
+      end
+    end
+
+  end
+  
+  def unassign_project
+    right = Right.find_by_user_id_and_project_id(params[:id], params[:project_id])
+    if right.destroy
+      notify :notice, "Successfully to remove project"
+    else
+      notify :error, "Failed to unassign project"
+    end
+    redirect_to :action => 'assign_project', :id => params[:id]
+  end
+
+  def change_rights
+    @right = Right.find(params[:right_id])
+    if @right.update_attributes(params[:right])
+      notify :notice, "Permissions updated"
+    else
+      notify :error, "Failed to update permissions"
+    end
+    redirect_to :action => 'assign_project', :id => params[:id]
+  end
+  
   private
     
   def get_new_user
@@ -201,6 +261,10 @@ class UsersController < ApplicationController
     return false unless params[:request].has_key?(:password)
     return false if params[:request][:password].empty?
     return true
+  end
+  
+  def object
+    @object ||= User.find(params[:id])
   end
   
 end

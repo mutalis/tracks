@@ -7,9 +7,12 @@ class ProjectsController < ApplicationController
   skip_before_filter :login_required, :only => [:index]
   prepend_before_filter :login_or_feed_token_required, :only => [:index]
   session :off, :only => :index, :if => Proc.new { |req| ['rss','atom','txt'].include?(req.parameters[:format]) }
+  before_filter :get_projects_by_role, :only => [:index, :show]
 
+  permissions :projects
+  
   def index
-    @projects = current_user.projects(true)
+    # @projects = current_user.projects(true)
     if params[:projects_and_actions]
       projects_and_actions
     else      
@@ -42,21 +45,22 @@ class ProjectsController < ApplicationController
   def show
     @contexts = current_user.contexts(true)
     init_data_for_sidebar unless mobile?
-    @projects = current_user.projects
+    # @projects = current_user.projects
     @contexts = current_user.contexts
     @page_title = "TRACKS::Project: #{@project.name}"
     @project.todos.send :with_scope, :find => { :include => [:context] } do
       @not_done = @project.not_done_todos(:include_project_hidden_todos => true)
       @deferred = @project.deferred_todos.sort_by { |todo| todo.show_from }
-      @done = @project.done_todos
+      @done = @project.done_todos(current_user)
     end
     
     @max_completed = current_user.prefs.show_number_completed
     
     @count = @not_done.size
-    @down_count = @count + @deferred.size 
-    @next_project = current_user.projects.next_from(@project)
-    @previous_project = current_user.projects.previous_from(@project)
+    @down_count = @count + @deferred.size
+    
+    @next_project = @projects.next_from(@project)
+    @previous_project = @projects.previous_from(@project)
     @default_project_context_name_map = build_default_project_context_name_map(@projects).to_json
     respond_to do |format|
       format.html
@@ -87,6 +91,30 @@ class ProjectsController < ApplicationController
     @project_not_done_counts = { @project.id => 0 }
     @active_projects_count = current_user.projects.active.count
     @contexts = current_user.contexts
+    
+    user_rights = Right.new
+    
+    if current_user.has_role?("subuser_projects")
+      user_rights.user = current_user.manager
+      
+      # Assign as a shared project
+      shared_rights = Right.new
+      shared_rights.user = current_user
+      shared_rights.project = @project
+      shared_rights.write = true
+      shared_rights.read = true
+      shared_rights.owner = false
+      shared_rights.save
+    else
+      user_rights.user = current_user
+    end
+    user_rights.project = @project
+    user_rights.write = true
+    user_rights.read = true
+    user_rights.owner = true
+    user_rights.save
+    
+    
     respond_to do |format|
       format.js { @down_count = current_user.projects.size }
       format.xml do
@@ -207,7 +235,7 @@ class ProjectsController < ApplicationController
       @hidden_projects = @projects.hidden
       @completed_projects = @projects.completed
       @no_projects = @projects.empty?
-      @projects.cache_note_counts
+      # @projects.cache_note_counts
       @new_project = current_user.projects.build
       render
     end
@@ -266,7 +294,11 @@ class ProjectsController < ApplicationController
   end
         
   def set_project_from_params
-    @project = current_user.projects.find_by_params(params)
+    if current_user.has_role?("subuser_projects") || current_user.has_role?("subuser")
+      @project = current_user.shared_projects.find_by_params(params)
+    else # admin and mainuser
+      @project = current_user.projects.find_by_params(params)
+    end
   end
     
   def set_source_view
@@ -293,6 +325,20 @@ class ProjectsController < ApplicationController
     project_description += "Project is #{project.state}."
     project_description += "</p>"
     project_description
+  end
+
+  private
+
+  def get_projects_by_role
+    if current_user.has_role?("subuser_projects") || current_user.has_role?("subuser")
+      @projects = current_user.shared_projects
+    else # admin and mainuser
+      @projects = current_user.projects(true)
+    end
+  end
+
+  def object
+    @object ||= Project.find(params[:id])
   end
 
 end
