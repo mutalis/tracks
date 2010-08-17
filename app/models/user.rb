@@ -28,7 +28,8 @@ class User < ActiveRecord::Base
                 end
               end
               def projects_in_state_by_position(state)
-                  self.sort{ |a,b| a.position <=> b.position }.select{ |p| p.state == state }
+                # self.sort{ |a,b| a.position <=> b.position }.select{ |p| p.state == state }                  
+                self.select{ |p| p.state == state }
               end
               def next_from(project)
                 self.offset_from(project, 1)
